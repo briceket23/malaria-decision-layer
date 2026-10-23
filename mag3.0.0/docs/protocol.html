@@ -1,0 +1,816 @@
+<title>Malaria Aggregation Protocol</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,600;0,700;1,400&family=Source+Sans+3:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;600&display=swap">
+
+<style>
+/* ── tokens ─────────────────────────────────────────────────────────────
+   Palette grounded in the subject: Giemsa stain is methylene blue plus
+   eosin, which is why every malaria field in the literature is purple and
+   rose. Those are the two accents. Neutrals carry a blue bias so they read
+   as chosen rather than inherited.                                        */
+:root {
+  --paper:      #F7F8FB;
+  --surface:    #FFFFFF;
+  --surface-2:  #EFF1F7;
+  --ink:        #191A2B;
+  --ink-2:      #43465C;
+  --muted:      #6A6C85;
+  --rule:       #DDE0EB;
+  --rule-soft:  #E9EBF3;
+  --giemsa:     #563B92;
+  --giemsa-dim: #EDE8F8;
+  --eosin:      #B8475F;
+  --eosin-dim:  #FBEAEE;
+  --done:       #2C7663;
+  --done-dim:   #E4F1ED;
+  --partial:    #9A6A1E;
+  --partial-dim:#F7EEDC;
+  --shadow:     0 1px 2px rgba(25,26,43,.05), 0 8px 24px -12px rgba(25,26,43,.18);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper:      #131421;
+    --surface:    #1B1C2C;
+    --surface-2:  #232438;
+    --ink:        #E9EAF4;
+    --ink-2:      #B9BBCE;
+    --muted:      #8B8DA5;
+    --rule:       #2E3048;
+    --rule-soft:  #262841;
+    --giemsa:     #AE95E4;
+    --giemsa-dim: #262046;
+    --eosin:      #E58DA2;
+    --eosin-dim:  #3A1F28;
+    --done:       #6FC4AC;
+    --done-dim:   #17322C;
+    --partial:    #D6A957;
+    --partial-dim:#332714;
+    --shadow:     0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.6);
+  }
+}
+:root[data-theme="dark"] {
+  --paper:      #131421;
+  --surface:    #1B1C2C;
+  --surface-2:  #232438;
+  --ink:        #E9EAF4;
+  --ink-2:      #B9BBCE;
+  --muted:      #8B8DA5;
+  --rule:       #2E3048;
+  --rule-soft:  #262841;
+  --giemsa:     #AE95E4;
+  --giemsa-dim: #262046;
+  --eosin:      #E58DA2;
+  --eosin-dim:  #3A1F28;
+  --done:       #6FC4AC;
+  --done-dim:   #17322C;
+  --partial:    #D6A957;
+  --partial-dim:#332714;
+  --shadow:     0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.6);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: "Source Sans 3", ui-sans-serif, system-ui, sans-serif;
+  font-size: 16.5px;
+  line-height: 1.62;
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── shell ─────────────────────────────────────────────────────────── */
+.shell { max-width: 1180px; margin: 0 auto; padding: 0 clamp(18px, 4vw, 40px); }
+.cols  { display: grid; grid-template-columns: 1fr; gap: 0; }
+@media (min-width: 1000px) {
+  .cols { grid-template-columns: 210px minmax(0,1fr); gap: 52px; align-items: start; }
+}
+
+/* ── masthead ──────────────────────────────────────────────────────── */
+.mast { padding: clamp(48px,7vw,86px) 0 34px; border-bottom: 2px solid var(--ink); }
+.eyebrow {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11.5px; letter-spacing: .13em; text-transform: uppercase;
+  color: var(--giemsa); margin: 0 0 18px;
+  display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center;
+}
+.eyebrow .sep { color: var(--rule); }
+h1 {
+  font-family: Spectral, Georgia, serif;
+  font-weight: 700; font-size: clamp(34px, 6.2vw, 60px); line-height: 1.04;
+  letter-spacing: -.019em; margin: 0 0 20px; text-wrap: balance;
+}
+.thesis {
+  font-family: Spectral, Georgia, serif; font-size: clamp(17px,2.1vw,21px);
+  line-height: 1.5; color: var(--ink-2); max-width: 40em; margin: 0;
+}
+.thesis strong { color: var(--ink); font-weight: 600; }
+
+/* ── nav rail ──────────────────────────────────────────────────────── */
+.rail { display: none; }
+@media (min-width: 1000px) {
+  .rail {
+    display: block; position: sticky; top: 26px; padding-top: 44px;
+    max-height: calc(100vh - 52px); overflow-y: auto;
+  }
+  .rail h2 {
+    font-family: "JetBrains Mono", monospace; font-size: 10.5px;
+    letter-spacing: .13em; text-transform: uppercase; color: var(--muted);
+    margin: 0 0 12px; font-weight: 600;
+  }
+  .rail ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1px; }
+  .rail a {
+    display: flex; gap: 9px; padding: 4px 8px 4px 0;
+    font-size: 13.5px; line-height: 1.35; color: var(--ink-2);
+    text-decoration: none; border-left: 2px solid transparent; padding-left: 11px;
+  }
+  .rail a:hover { color: var(--giemsa); border-left-color: var(--giemsa); }
+  .rail .n {
+    font-family: "JetBrains Mono", monospace; font-size: 11px;
+    color: var(--muted); flex-shrink: 0; padding-top: 1px;
+  }
+}
+
+/* ── sections ──────────────────────────────────────────────────────── */
+main { padding-bottom: 100px; }
+section { padding-top: 52px; scroll-margin-top: 20px; }
+h2.sec {
+  font-family: Spectral, Georgia, serif; font-weight: 700;
+  font-size: clamp(23px,3vw,31px); line-height: 1.17; letter-spacing: -.014em;
+  margin: 0 0 6px; text-wrap: balance;
+  display: flex; gap: 14px; align-items: baseline;
+}
+h2.sec .num {
+  font-family: "JetBrains Mono", monospace; font-size: 13px; font-weight: 600;
+  color: var(--giemsa); flex-shrink: 0; letter-spacing: 0;
+}
+.deck { color: var(--muted); font-size: 15.5px; margin: 0 0 22px 0; max-width: 62ch; }
+@media (min-width: 1000px) { .deck { margin-left: 41px; } }
+.body { max-width: 68ch; }
+@media (min-width: 1000px) { .body { margin-left: 41px; } }
+p { margin: 0 0 15px; }
+p:last-child { margin-bottom: 0; }
+strong { font-weight: 600; }
+em { font-style: italic; }
+a { color: var(--giemsa); }
+
+/* ── callouts ──────────────────────────────────────────────────────── */
+.alert {
+  background: var(--eosin-dim); border: 1px solid var(--eosin);
+  border-radius: 3px; padding: 22px 24px; margin: 26px 0;
+}
+.alert .tag {
+  font-family: "JetBrains Mono", monospace; font-size: 10.5px; font-weight: 600;
+  letter-spacing: .13em; text-transform: uppercase; color: var(--eosin);
+  display: block; margin-bottom: 9px;
+}
+.alert h3 {
+  font-family: Spectral, Georgia, serif; font-size: 20px; font-weight: 600;
+  margin: 0 0 10px; line-height: 1.25;
+}
+.note {
+  border-left: 3px solid var(--giemsa); background: var(--giemsa-dim);
+  padding: 16px 20px; margin: 22px 0; border-radius: 0 3px 3px 0;
+}
+.note .tag {
+  font-family: "JetBrains Mono", monospace; font-size: 10.5px; font-weight: 600;
+  letter-spacing: .13em; text-transform: uppercase; color: var(--giemsa);
+  display: block; margin-bottom: 7px;
+}
+blockquote {
+  margin: 20px 0; padding: 2px 0 2px 20px; border-left: 2px solid var(--rule);
+  font-family: Spectral, Georgia, serif; font-size: 17px; line-height: 1.52;
+  color: var(--ink-2); font-style: italic;
+}
+blockquote strong { font-style: normal; color: var(--ink); }
+
+/* ── tables ────────────────────────────────────────────────────────── */
+.tw { overflow-x: auto; margin: 22px 0; border: 1px solid var(--rule); border-radius: 3px; background: var(--surface); }
+@media (min-width: 1000px) { .tw { margin-left: 41px; } }
+table { border-collapse: collapse; width: 100%; font-size: 14.5px; min-width: 480px; }
+th {
+  text-align: left; font-family: "JetBrains Mono", monospace;
+  font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--muted); font-weight: 600; padding: 12px 14px;
+  border-bottom: 1px solid var(--rule); vertical-align: bottom; white-space: nowrap;
+}
+td { padding: 11px 14px; border-bottom: 1px solid var(--rule-soft); vertical-align: top; line-height: 1.46; }
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover { background: var(--surface-2); }
+td.num, th.num { font-variant-numeric: tabular-nums; text-align: right; }
+td.s { white-space: nowrap; font-family: "JetBrains Mono", monospace; font-size: 12px; }
+caption {
+  caption-side: bottom; text-align: left; padding: 11px 14px;
+  font-size: 13px; color: var(--muted); border-top: 1px solid var(--rule-soft);
+}
+
+/* ── status chips ──────────────────────────────────────────────────── */
+.chip {
+  display: inline-block; font-family: "JetBrains Mono", monospace;
+  font-size: 10.5px; font-weight: 600; letter-spacing: .05em;
+  padding: 2px 7px; border-radius: 2px; white-space: nowrap; text-transform: uppercase;
+}
+.chip.done    { background: var(--done-dim);    color: var(--done); }
+.chip.partial { background: var(--partial-dim); color: var(--partial); }
+.chip.new     { background: var(--eosin-dim);   color: var(--eosin); }
+
+.legend { display: flex; flex-wrap: wrap; gap: 10px 20px; margin: 0 0 20px; font-size: 13.5px; color: var(--muted); }
+@media (min-width: 1000px) { .legend { margin-left: 41px; } }
+.legend span { display: flex; gap: 7px; align-items: center; }
+
+/* ── code ──────────────────────────────────────────────────────────── */
+code {
+  font-family: "JetBrains Mono", ui-monospace, monospace; font-size: .88em;
+  background: var(--surface-2); padding: 1.5px 5px; border-radius: 2px;
+}
+pre {
+  font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 13px;
+  line-height: 1.62; background: var(--surface-2); border: 1px solid var(--rule);
+  border-radius: 3px; padding: 16px 18px; overflow-x: auto; margin: 20px 0;
+}
+@media (min-width: 1000px) { pre { margin-left: 41px; } }
+pre code { background: none; padding: 0; font-size: inherit; }
+
+/* ── two-tone forbidden / required ─────────────────────────────────── */
+.lang td:first-child { color: var(--eosin); text-decoration: line-through; text-decoration-thickness: 1px; text-decoration-color: var(--rule); }
+.lang td:last-child  { color: var(--ink); }
+
+/* ── the refusal block ─────────────────────────────────────────────── */
+.refuse {
+  border: 2px solid var(--ink); border-radius: 3px; padding: 28px 30px;
+  margin: 26px 0; background: var(--surface);
+}
+@media (min-width: 1000px) { .refuse { margin-left: 41px; } }
+.refuse h3 {
+  font-family: Spectral, Georgia, serif; font-size: 21px; font-weight: 700;
+  margin: 0 0 4px; letter-spacing: -.01em;
+}
+.refuse .sub { color: var(--muted); font-size: 14.5px; margin: 0 0 18px; }
+.refuse ul { margin: 0 0 20px; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 9px; }
+.refuse li { padding-left: 24px; position: relative; line-height: 1.5; }
+.refuse li::before {
+  content: "✕"; position: absolute; left: 0; top: 1px;
+  color: var(--eosin); font-size: 13px; font-weight: 600;
+}
+
+/* ── lists ─────────────────────────────────────────────────────────── */
+.body ul, .body ol { margin: 0 0 15px; padding-left: 22px; }
+.body li { margin-bottom: 7px; line-height: 1.55; }
+
+/* ── footer ────────────────────────────────────────────────────────── */
+footer {
+  border-top: 2px solid var(--ink); margin-top: 40px; padding: 26px 0 70px;
+  font-size: 13.5px; color: var(--muted);
+  display: flex; flex-wrap: wrap; gap: 8px 26px;
+}
+footer .k { font-family: "JetBrains Mono", monospace; font-size: 11.5px; letter-spacing: .06em; text-transform: uppercase; }
+
+:focus-visible { outline: 2px solid var(--giemsa); outline-offset: 2px; border-radius: 2px; }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+
+<div class="shell">
+  <header class="mast">
+    <p class="eyebrow">
+      <span>Analysis protocol v3</span><span class="sep">/</span>
+      <span>supersedes v2</span><span class="sep">/</span>
+      <span>specification — not documentation</span>
+    </p>
+    <h1>Detector versus decision rule</h1>
+    <p class="thesis">One specification. <strong>The code implements it; the manuscript reports against it; neither may say anything the other does not.</strong> Written after three independent reviews of the v2 manuscript build and an adversarial audit of the v2 analysis package.</p>
+  </header>
+
+  <div class="cols">
+    <nav class="rail" aria-label="Sections">
+      <h2>Contents</h2>
+      <ol>
+        <li><a href="#s0"><span class="n">00</span><span>The reviewed build</span></a></li>
+        <li><a href="#s1"><span class="n">01</span><span>What changed</span></a></li>
+        <li><a href="#s2"><span class="n">02</span><span>Contributions</span></a></li>
+        <li><a href="#s3"><span class="n">03</span><span>Three quantities</span></a></li>
+        <li><a href="#s4"><span class="n">04</span><span>Estimands</span></a></li>
+        <li><a href="#s5"><span class="n">05</span><span>The decision layer</span></a></li>
+        <li><a href="#s7"><span class="n">07</span><span>Propositions</span></a></li>
+        <li><a href="#s8"><span class="n">08</span><span>Gates</span></a></li>
+        <li><a href="#s9"><span class="n">09</span><span>Attribution</span></a></li>
+        <li><a href="#s10"><span class="n">10</span><span>Confirmatory test</span></a></li>
+        <li><a href="#s11"><span class="n">11</span><span>Calibration</span></a></li>
+        <li><a href="#s13"><span class="n">13</span><span>Field-sampling stress</span></a></li>
+        <li><a href="#s17"><span class="n">17</span><span>Language</span></a></li>
+        <li><a href="#s19"><span class="n">19</span><span>Build integrity</span></a></li>
+        <li><a href="#s20"><span class="n">20</span><span>Manuscript</span></a></li>
+        <li><a href="#s21"><span class="n">21</span><span>Refuses to claim</span></a></li>
+        <li><a href="#s22"><span class="n">22</span><span>Acquisition</span></a></li>
+        <li><a href="#impl"><span class="n">→</span><span>Implementation</span></a></li>
+      </ol>
+    </nav>
+
+    <main>
+
+      <!-- ══ 0 ══ -->
+      <section id="s0">
+        <h2 class="sec"><span class="num">00</span>The reviewed build was not a results build</h2>
+        <p class="deck">Read this before acting on any review.</p>
+        <div class="body">
+          <div class="alert">
+            <span class="tag">Stop condition</span>
+            <h3>All three reviews describe numbers that do not exist.</h3>
+            <p>The PDF they read carries its own watermark — <em>“DRAFT — the numbers in this build are NOT from a run on the archive”</em> — and the figures they quote are demo-generator output. This is not a quibble about provenance. It changes what the paper is about.</p>
+          </div>
+        </div>
+
+        <div class="tw">
+          <table>
+            <thead><tr><th>The reviews were shown</th><th>The last real run produced</th><th>Consequence</th></tr></thead>
+            <tbody>
+              <tr><td>reproduction <strong>156/170</strong>, <em>above</em> the published 135</td><td><strong>96/170</strong> — <em>below</em> it</td><td>the direction of the reproducibility finding reverses</td></tr>
+              <tr><td>specificity under R0 = 74.1%</td><td><strong>0.000</strong> — every uninfected patient called infected</td><td>the failure is total, not partial</td></tr>
+              <tr><td>R4−R0 specificity +25.9 pp, co-primary <strong>met</strong></td><td><strong>+87.0 pp</strong>; NI <strong>inconclusive</strong></td><td>the endpoint fails on a different component than reviewed</td></tr>
+              <tr><td>Brier 0.000; AURC 0.027 in text vs 0.471 in figure</td><td>generator artefacts</td><td>not defects to repair in prose</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="body">
+          <p>One reviewer builds a recommendation on “the reimplementation scored higher — 21 patients.” The real finding is the opposite, and it is stronger: <strong>the released artefacts under the documented rule call every uninfected patient infected.</strong></p>
+          <p>Two consequences bind everything below. <strong>First, no number enters prose until the re-run produces it</strong> — the last real cache no longer exists. <strong>Second, the reviewers’ methodological points stand regardless.</strong> They were reasoning about the design, and on the design they are largely right — including on one defect this package had already found by simulation, and one it had got conceptually wrong.</p>
+        </div>
+      </section>
+
+      <!-- ══ 1 ══ -->
+      <section id="s1">
+        <h2 class="sec"><span class="num">01</span>What changed from v2</h2>
+        <p class="deck">Every change traces to a specific finding. R1, R2, R3 are the three reviews in the order supplied.</p>
+        <div class="legend">
+          <span><span class="chip done">✔ built</span> exists in <code>mag</code> v1</span>
+          <span><span class="chip partial">~ partial</span> exists, needs change</span>
+          <span><span class="chip new">✕ new</span> new work</span>
+        </div>
+        <div class="tw">
+          <table>
+            <thead><tr><th class="num">§</th><th>Change</th><th>Driver</th><th>Status</th></tr></thead>
+            <tbody>
+              <tr><td class="num">2</td><td>Contribution hierarchy inverted: the measurement problem leads, R4 demoted to a demonstration</td><td class="s">R1 · R3</td><td><span class="chip done">built</span></td></tr>
+              <tr><td class="num">3</td><td>Three quantities separated by name: published / reconstructed / comparator</td><td class="s">R2</td><td><span class="chip new">new</span></td></tr>
+              <tr><td class="num">3</td><td>“Failed reproduction” → “not reconstructible from the released artefacts”</td><td class="s">R1 · R2</td><td><span class="chip new">new</span></td></tr>
+              <tr><td class="num">5</td><td>Rule set reduced to six in the main paper; full catalogue to supplement</td><td class="s">R2</td><td><span class="chip new">new</span></td></tr>
+              <tr><td class="num">5</td><td>Rule comparability table: input quantity, scale, threshold meaning, dependencies</td><td class="s">R2</td><td><span class="chip new">new</span></td></tr>
+              <tr><td class="num">6</td><td>Parameter rationale table with pre-registration status</td><td class="s">R1</td><td><span class="chip new">new</span></td></tr>
+              <tr><td class="num">8</td><td><strong>Checkpoint pre-declared</strong>; headroom demoted to descriptive feasibility</td><td class="s">R2 + own sim</td><td><span class="chip partial">partial</span></td></tr>
+              <tr><td class="num">9</td><td><strong>Attribution by patient-clustered model with interaction</strong>; ranges demoted</td><td class="s">R2</td><td><span class="chip new">new</span></td></tr>
+              <tr><td class="num">9</td><td>Retract the claim that interaction “is not estimable” — it is</td><td class="s">R2</td><td><span class="chip new">new</span></td></tr>
+              <tr><td class="num">10</td><td>Primary endpoint presented as paired discordances first</td><td class="s">R1 · R2</td><td><span class="chip partial">partial</span></td></tr>
+              <tr><td class="num">11</td><td><strong>Calibration split</strong>: binary infection vs conditional speciation</td><td class="s">R1 · R2</td><td><span class="chip new">new</span></td></tr>
+              <tr><td class="num">12</td><td>Abstention reported as workload–performance, not AURC alone</td><td class="s">R2</td><td><span class="chip partial">partial</span></td></tr>
+              <tr><td class="num">13</td><td><strong>Field-sampling stress test</strong> — the highest-value new experiment</td><td class="s">R2</td><td><span class="chip new">new</span></td></tr>
+              <tr><td class="num">14</td><td>Prevalence-standardised predictive values</td><td class="s">R2</td><td><span class="chip new">new</span></td></tr>
+              <tr><td class="num">15</td><td>Leave-one-centre-out where estimable</td><td class="s">R2</td><td><span class="chip new">new</span></td></tr>
+              <tr><td class="num">16</td><td>Accuracy demoted from headline; screening pair promoted</td><td class="s">R2</td><td><span class="chip new">new</span></td></tr>
+              <tr><td class="num">17</td><td>WHO-band analysis moved wholly to supplement</td><td class="s">R1 · R2</td><td><span class="chip new">new</span></td></tr>
+              <tr><td class="num">18</td><td>Specificity restated as a Montpellier-cohort estimate, not site-invariant</td><td class="s">R1 · R2</td><td><span class="chip partial">partial</span></td></tr>
+              <tr><td class="num">19</td><td>Claim–evidence–scope table as a build artefact</td><td class="s">R1</td><td><span class="chip new">new</span></td></tr>
+              <tr><td class="num">20</td><td>Build audit fails the PDF on any unresolved macro or cross-artefact mismatch</td><td class="s">R1 · R2 · R3</td><td><span class="chip partial">partial</span></td></tr>
+              <tr><td class="num">—</td><td><em>already fixed:</em> one generated sentence per directional claim</td><td class="s">R1 · R3</td><td><span class="chip done">built</span></td></tr>
+              <tr><td class="num">—</td><td><em>already fixed:</em> Tango score limit replaces the percentile bootstrap on NI</td><td class="s">own audit</td><td><span class="chip done">built</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="body">
+          <h3 style="font-family:Spectral,Georgia,serif;font-size:19px;font-weight:600;margin:28px 0 10px;">Points not adopted, and why</h3>
+          <p><strong>“The AURC figure disagrees with the text.”</strong> Not an editing task. In v2 the figures and numbers came from different code paths; in v3 both descend from one <code>Study</code> object and a stamp check refuses a build across a mismatch. The class of defect is removed rather than the instances repaired.</p>
+          <p><strong>A model card for each checkpoint.</strong> Adopted, with one change: sourced from the released artefacts and the source publication, never reconstructed. Where the release does not state something, the cell reads NOT REPORTED. A model card filled in by inference is worse than none.</p>
+          <p><strong>“The study has approximately 80% power to detect 6%.”</strong> Do not write this. It is a pre-hoc power statement computed after the sample size was fixed by someone else’s test split, and it assumes a base sensitivity. §10.4 replaces it with the detectable-effect calculation, which answers the same reader question without assuming the answer.</p>
+        </div>
+      </section>
+
+      <!-- ══ 2 ══ -->
+      <section id="s2">
+        <h2 class="sec"><span class="num">02</span>The hierarchy of claims</h2>
+        <p class="deck">A methodological diagnostic-AI paper demonstrated on malaria microscopy — not a malaria detector paper.</p>
+        <div class="body">
+          <blockquote>A detector and a patient-level diagnostic system are not the same object. The patient decision is a function of the checkpoint, the post-processing, the aggregation rule, the threshold and the calibration — and patient-level results are routinely reported naming only the first.</blockquote>
+        </div>
+        <div class="tw">
+          <table>
+            <thead><tr><th class="num">#</th><th>Contribution</th><th>What it is</th></tr></thead>
+            <tbody>
+              <tr><td class="num">1</td><td><strong>A measurement problem</strong></td><td>Patient-level performance is not determined by detector output alone; a decision layer sits between them and is rarely reported.</td></tr>
+              <tr><td class="num">2</td><td><strong>An experimental demonstration</strong></td><td>Under matched post-processing and fixed weights, varying the rule moved performance further than varying the checkpoint. <em>Scope: this cohort, these levels.</em></td></tr>
+              <tr><td class="num">3</td><td><strong>A reproducibility finding</strong></td><td>The published patient-level result was not reconstructible from the released artefacts under the documented procedure.</td></tr>
+              <tr><td class="num">4</td><td><strong>A design framework</strong></td><td>Identifiability and design gates that refuse comparisons incapable of producing a non-null result, before unblinding.</td></tr>
+              <tr><td class="num">5</td><td><strong>A clinical caution</strong></td><td>This dataset cannot establish deployment-level performance, and the protocol says so before the results rather than after.</td></tr>
+            </tbody>
+          </table>
+          <caption><strong>R4 is evidence for contribution 1. It is not the paper’s endpoint.</strong> No sentence may present it as a recommended rule.</caption>
+        </div>
+      </section>
+
+      <!-- ══ 3 ══ -->
+      <section id="s3">
+        <h2 class="sec"><span class="num">03</span>Three quantities that must never share a name</h2>
+        <p class="deck">The commonest way this manuscript misleads is by letting one word do three jobs.</p>
+        <div class="tw">
+          <table>
+            <thead><tr><th>Name</th><th>Symbol</th><th>What it is</th></tr></thead>
+            <tbody>
+              <tr><td><strong>the published result</strong></td><td class="s">—</td><td>the accuracy the source publication reports. An external fact. We did not compute it and cannot verify it.</td></tr>
+              <tr><td><strong>the reconstructed rule</strong></td><td class="s">R0</td><td>our implementation of the published rule as documented, run on the released weights and images</td></tr>
+              <tr><td><strong>the comparator</strong></td><td class="s">R0</td><td>the same object, in its role as the baseline of every paired test</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="body">
+          <p>The confirmatory comparison is therefore <strong>R4 against our reconstruction of the published rule</strong>, never “against the published system.”</p>
+          <div class="note">
+            <span class="tag">Generated sentence — required</span>
+            <p style="margin:0">The released artefacts did not reconstruct the source study’s reported patient-level accuracy. We treated the reconstructed rule as the prespecified comparator for all paired analyses, and interpret the discrepancy as a reproducibility finding about the release rather than as evidence about the original implementation.</p>
+          </div>
+          <p><strong>Vocabulary ban.</strong> “Failed reproduction” is retired. It licenses the reading <em>the original paper was wrong</em>, which this study cannot support.</p>
+        </div>
+      </section>
+
+      <!-- ══ 4 ══ -->
+      <section id="s4">
+        <h2 class="sec"><span class="num">04</span>The estimands, stated before any analysis</h2>
+        <p class="deck">The dataset does not merely limit precision. It changes what is being estimated.</p>
+        <div class="body">
+          <p><strong>4.1 Screening specificity — a cohort quantity, not a property of a rule.</strong> All 54 uninfected patients come from Montpellier, which also supplied training material. Specificity is perfectly collinear with centre and with internal/external domain. This is <strong>rank deficiency, not low power</strong>: no estimator separates them and no sample size fixes it.</p>
+          <blockquote><strong>Estimand.</strong> The probability that the rule calls a patient uninfected, among uninfected patients from the Montpellier cohort of this archive, under the reconstructed RT-DETR pipeline.</blockquote>
+          <p>Forbidden: “the rule controls false positives.” Required: “the rule reduced false-positive calls in the Montpellier-negative subset of this archive.”</p>
+
+          <p><strong>4.2 Screening sensitivity — conditioned on enriched fields.</strong> Every field from an infected patient contains at least one parasite by the archive’s selection protocol. Accumulation and counting rules are being evaluated under sampling far more favourable than screening.</p>
+          <blockquote><strong>Estimand.</strong> The probability that the rule calls a patient infected, among infected patients, <strong>when every examined field is known to contain a parasite.</strong></blockquote>
+          <p>That clause is not a limitation to be confessed later. It is part of the estimand — and §13 measures how far the answer moves when it is relaxed.</p>
+
+          <p><strong>4.3 Accuracy — demoted.</strong> At 68% prevalence with a non-representative species mix, accuracy is a design-dependent summary. It stays in the factorial because it is the one quantity defined for every cell, and it is <strong>never a headline</strong>.</p>
+          <p><strong>4.4 Speciation — a fixed denominator.</strong> Evaluated on the truly infected patients regardless of the screening call, so the denominator is identical across rules and the pairing survives.</p>
+        </div>
+      </section>
+
+      <!-- ══ 5 ══ -->
+      <section id="s5">
+        <h2 class="sec"><span class="num">05</span>The decision layer</h2>
+        <p class="deck">Six rules in the main paper. v2 carried fourteen — on 170 patients that is a framework competing with its own finding.</p>
+        <div class="tw">
+          <table>
+            <thead><tr><th class="s">ID</th><th>Principle</th><th>Why it is in the main set</th></tr></thead>
+            <tbody>
+              <tr><td class="s">R0</td><td>summed confidence, threshold at 0⁺</td><td>the reconstructed published rule; the comparator</td></tr>
+              <tr><td class="s">R1</td><td>extremal — the single strongest detection</td><td>the opposite pole from accumulation</td></tr>
+              <tr><td class="s">R4</td><td>counting — at least <em>m</em> detections above τ</td><td>the confirmatory candidate</td></tr>
+              <tr><td class="s">R5</td><td>field voting — share of fields carrying evidence</td><td>the only rule normalised by fields examined</td></tr>
+              <tr><td class="s">R6</td><td>density — parasites per erythrocyte</td><td>the only rule with a clinical unit</td></tr>
+              <tr><td class="s">B1</td><td>oracle</td><td>the ceiling on what any function of this cache could return</td></tr>
+            </tbody>
+          </table>
+          <caption>R2, R3, R6b, R7, R8 and the fitted family R9–R13 move to Supplementary Table S4. They are still computed — the factorial needs them — but they no longer compete for attention.</caption>
+        </div>
+
+        <div class="body">
+          <p><strong>5.2 The comparability table (new).</strong> Fixed parameters make rules <em>pre-registered</em> without making them <em>comparable</em>: their thresholds live on different scales and depend on different things.</p>
+        </div>
+        <div class="tw">
+          <table>
+            <thead><tr><th class="s">Rule</th><th>Input quantity</th><th>Threshold means</th><th>Field count</th><th>Duplicate boxes</th><th>RBC detection</th><th>Probability</th></tr></thead>
+            <tbody>
+              <tr><td class="s">R0</td><td>Σ confidence</td><td>total evidence</td><td>no</td><td><strong>yes</strong></td><td>no</td><td>no</td></tr>
+              <tr><td class="s">R1</td><td>max confidence</td><td>one detection’s score</td><td>no</td><td>no</td><td>no</td><td>no</td></tr>
+              <tr><td class="s">R4</td><td>count ≥ τ</td><td>number of detections</td><td>no</td><td><strong>yes</strong></td><td>no</td><td>no</td></tr>
+              <tr><td class="s">R5</td><td>share of fields voting</td><td>fraction of fields</td><td><strong>yes</strong></td><td>no</td><td>no</td><td>no</td></tr>
+              <tr><td class="s">R6</td><td>parasites per RBC</td><td>parasitaemia</td><td>no</td><td><strong>yes</strong></td><td><strong>yes</strong></td><td>no</td></tr>
+              <tr><td class="s">R9–R11</td><td>calibrated probability</td><td>probability</td><td>no</td><td><strong>yes</strong></td><td>no</td><td><strong>yes</strong></td></tr>
+            </tbody>
+          </table>
+          <caption>The table states what the comparison <em>is</em>: a comparison of fixed operational rules at pre-registered parameters, not of rule families at their best. That declaration goes in the Methods — the alternative reading is the one a reader will otherwise assume.</caption>
+        </div>
+
+        <div class="body"><p><strong>5.3 Parameter rationale (new).</strong> None was fitted to this dataset. That is what makes the confirmatory test valid, and it is why the table exists.</p></div>
+        <div class="tw">
+          <table>
+            <thead><tr><th class="s">Parameter</th><th class="num">Value</th><th class="s">Rule</th><th>Source</th><th>Pre-registered</th></tr></thead>
+            <tbody>
+              <tr><td class="s">τ</td><td class="num">0.50</td><td class="s">R4</td><td>the source study’s own reported operating point</td><td>yes</td></tr>
+              <tr><td class="s">m</td><td class="num">2</td><td class="s">R4</td><td>minimum evidence: one box is a single-detection artefact</td><td>yes</td></tr>
+              <tr><td class="s">k</td><td class="num">5</td><td class="s">R3</td><td>top-<em>k</em> robustness, an order of magnitude below the median box count</td><td>yes</td></tr>
+              <tr><td class="s">ρ</td><td class="num">0.05</td><td class="s">R6</td><td>parasitaemia threshold in routine reporting</td><td>yes</td></tr>
+              <tr><td class="s">ρ</td><td class="num">0.001</td><td class="s">R6b</td><td>a screening-sensitive threshold, declared as a sensitivity analysis</td><td>yes</td></tr>
+              <tr><td class="s">β</td><td class="num">10</td><td class="s">R8</td><td>log-sum-exp sharpness placing it between max and sum</td><td>yes</td></tr>
+              <tr><td class="s">θ<sub>vote</sub></td><td class="num">0.50</td><td class="s">R5</td><td>matches τ so the two counting-family rules share a floor</td><td>yes</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ══ 7 ══ -->
+      <section id="s7">
+        <h2 class="sec"><span class="num">07</span>Propositions</h2>
+        <p class="deck">Statements and their consequence in the main text. Proofs to Supplementary Methods.</p>
+        <div class="tw">
+          <table>
+            <thead><tr><th class="s">#</th><th>Statement</th><th>What it licenses or forbids</th></tr></thead>
+            <tbody>
+              <tr><td class="s">P1</td><td>scale invariance</td><td>a rule’s threshold may be reported in its own units without loss</td></tr>
+              <tr><td class="s">P2</td><td>screening equivalence</td><td>a per-class recalibration cannot change a screening call, so enrolling a calibrated rule as a confirmatory comparison on D₁ guarantees <em>b</em>=<em>c</em>=0</td></tr>
+              <tr><td class="s">P3</td><td>headroom</td><td>a baseline already perfect on the negatives offers no win, whatever the candidate does</td></tr>
+              <tr><td class="s">P4</td><td>oracle ceiling</td><td>the gap between oracle and baseline is the only quantity here that does not depend on which rules were tried</td></tr>
+              <tr><td class="s">P5</td><td>design identifiability</td><td>when every uninfected patient shares one centre, specificity and domain are one column</td></tr>
+            </tbody>
+          </table>
+          <caption>P2 and P3 are the operative ones: they are why comparisons are removed <strong>before</strong> unblinding rather than reported and discounted afterwards.</caption>
+        </div>
+      </section>
+
+      <!-- ══ 8 ══ -->
+      <section id="s8">
+        <h2 class="sec"><span class="num">08</span>Gates</h2>
+        <p class="deck">Order is fixed. Each gate is evaluated before anything it could contaminate.</p>
+        <pre><code>identifiability → yield → pre-declared checkpoint → factorial
+    → reconstruction → design → confirm</code></pre>
+        <div class="body">
+          <div class="alert">
+            <span class="tag">§8.3 — changed</span>
+            <h3>The checkpoint is now pre-declared</h3>
+            <p>v2 selected the confirmatory checkpoint by maximum baseline headroom. An independent reviewer and this package’s own null simulation found the same defect from opposite directions:</p>
+            <p style="font-family:'JetBrains Mono',monospace;font-size:13.5px;margin:14px 0"><strong>headroom = b + (patients both rules get wrong)</strong></p>
+            <p>where <em>b</em> is the numerator of the test statistic. Selecting the largest headroom selects, in part, the largest <em>b</em>. Simulated at three comparable arms the size rises to <strong>≈6.5% against a nominal 5%</strong> — an inflation, not the promised conservatism. The argument v2 gave for it (“headroom reads the baseline only”) is simply wrong.</p>
+            <p style="margin-bottom:0"><strong>v3 pre-declares RT-DETR</strong>, named in the registration, chosen because it is the architecture the source study reports — a fact independent of any outcome in this dataset. Headroom is retained as a descriptive feasibility statement, never as a selector.</p>
+          </div>
+          <p>Two analyses remain, both pre-specified. <strong>Max-discordance selection</strong> is reported as a sensitivity analysis: it is level-preserving by construction, since the exact McNemar conditions on <em>n</em> = <em>b</em>+<em>c</em> and conditional on <em>n</em> the statistic is Binomial(<em>n</em>, ½) whatever else is true. And <strong>the size simulation itself</strong> goes in the supplement — a design paper that found a size inflation in its own procedure should show it.</p>
+          <p><strong>Identifiability</strong> fails on this archive and qualifies rather than stops. <strong>Yield</strong> is post hoc and declared so; a refused arm is named with its cause, which requires the YOLOv5x probe rather than silence. <strong>Reconstruction</strong> refusal is the expected outcome and is a finding. <strong>Design</strong> refuses a comparison whose candidate is screening-equivalent to the comparator, with discordance taken among the uninfected — and is applied to the sensitivity arm as well as the primary.</p>
+        </div>
+      </section>
+
+      <!-- ══ 9 ══ -->
+      <section id="s9">
+        <h2 class="sec"><span class="num">09</span>Factorial attribution — rebuilt</h2>
+        <p class="deck">The paper’s second contribution, and v2’s weakest analysis.</p>
+        <div class="body">
+          <p>v2 compared a range across fourteen rules with a range across two or three checkpoints. A range grows with the number of levels; the two factors have wildly different level counts; the comparison is outlier-sensitive. v2 also claimed the interaction “is arithmetically the residual and is not separately estimable.”</p>
+          <div class="alert">
+            <span class="tag">Retraction</span>
+            <h3>That claim is wrong.</h3>
+            <p style="margin-bottom:0">Every patient contributes an outcome under <em>every</em> rule–checkpoint cell. The design is a complete factorial with <strong>170 repeated patient-level observations per cell</strong>, not one observation per cell. What v2 actually lacked was independent residual error <em>at the cell-mean level</em> — a different and much narrower statement.</p>
+          </div>
+          <p><strong>The v3 primary analysis</strong> is a patient-clustered model on the binary patient-level outcome:</p>
+        </div>
+        <pre><code>logit P(Y_irc = 1) = μ + α_r + β_c + (αβ)_rc + u_i</code></pre>
+        <div class="body">
+          <p>Fitted as a GEE with an exchangeable working correlation and robust standard errors clustered on patient. Reported: the marginal rule effect, the marginal checkpoint effect, <strong>the interaction with a test</strong>, and the contrast between the two marginals — which is the paper’s claim.</p>
+          <p>Ranges become descriptive, secondary, and labelled. The permutation null for the <em>checkpoint</em> factor is retained because it is valid. <strong>No permutation null is reported for the rule factor</strong> — with one observation per cell-mean there is no permutation that removes a rule effect without removing the values it is made of, and v2’s attempt returned a null equal to the observed spread to the last decimal.</p>
+          <div class="note">
+            <span class="tag">Required wording</span>
+            <p style="margin:0 0 10px"><strong>Forbidden:</strong> “the rule matters more than the detector”, and any multiplier computed from a ratio of ranges.</p>
+            <p style="margin:0">Within the levels surviving the yield gate and under matched post-processing, the marginal effect of the aggregation rule on patient-level accuracy exceeded the marginal effect of the detector checkpoint by [Δ] on the log-odds scale (95% CI [·], patient-clustered). The descriptive accuracy range across rules was [·] percentage points against [·] across checkpoints; <strong>these are ranges over factors with different numbers of levels and are not variance components.</strong></p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ══ 10 ══ -->
+      <section id="s10">
+        <h2 class="sec"><span class="num">10</span>The confirmatory comparison</h2>
+        <p class="deck">Intersection–union co-primary on the pre-declared checkpoint. One candidate, one comparator.</p>
+        <div class="body">
+          <p>Specificity by superiority (one-sided exact McNemar); sensitivity by non-inferiority at a 5 percentage-point margin. Both components one-sided <strong>in the same direction</strong> at α = 0.05. An IU test needs no multiplicity correction — and inherits the <em>worst</em> component’s level, which is why the method below matters.</p>
+          <p><strong>10.2 Discordances first.</strong> The inferential object is the paired 2×2. Report it as such, before any percentage-point difference — a reader currently cannot reconstruct the result from the manuscript.</p>
+        </div>
+        <div class="tw">
+          <table>
+            <thead><tr><th></th><th>Comparator correct</th><th>Comparator wrong</th></tr></thead>
+            <tbody>
+              <tr><td><strong>Candidate correct</strong></td><td><em>a</em></td><td><strong><em>b</em></strong></td></tr>
+              <tr><td><strong>Candidate wrong</strong></td><td><strong><em>c</em></strong></td><td><em>d</em></td></tr>
+            </tbody>
+          </table>
+          <caption>Required for each endpoint: <em>a</em>, <em>b</em>, <em>c</em>, <em>d</em>; the discordant total; the exact <em>p</em>; and the direction.</caption>
+        </div>
+        <div class="body">
+          <div class="alert">
+            <span class="tag">§10.3 — method fixed</span>
+            <h3>The non-inferiority bound is Tango’s score interval</h3>
+            <p>The percentile bootstrap v2 used is only first-order accurate, and at this endpoint’s parameters — a comparator sensitivity near 0.97, so per-patient differences almost always 0 or −1 — <strong>it does not hold its level.</strong> Simulated type I error at the NI null was <strong>0.063 to 0.076 against a nominal 0.05</strong>, and because this is half of a co-primary the whole endpoint inherited it.</p>
+            <p style="margin-bottom:0">Tango holds (0.017–0.044 simulated) and retains 0.93 power. Both limits are computed and reported; Tango governs.</p>
+          </div>
+          <p><strong>10.4 Detectable effect, not observed power.</strong> Observed power is a monotone function of the <em>p</em>-value and is not reported. Reported instead: given the realised sample size and discordance, the smallest true effect the procedure would find with 80% probability — including the fact that below five discordant pairs <strong>no split whatsoever</strong> reaches a one-sided 0.05. That is a property of the design, not of the detector.</p>
+          <p><strong>10.5 The verdict</strong> is one generated sentence, each clause reading its own component, reused verbatim in abstract, results, discussion and conclusion. If specificity passes and sensitivity does not: <strong>the co-primary endpoint was not met, and no superiority claim is made.</strong> The design working as intended is a result, not a disappointment.</p>
+        </div>
+      </section>
+
+      <!-- ══ 11 ══ -->
+      <section id="s11">
+        <h2 class="sec"><span class="num">11</span>Calibration — split</h2>
+        <p class="deck">v2 mixed binary screening calibration with six-class calibration in one set of numbers.</p>
+        <div class="tw">
+          <table>
+            <thead><tr><th>Analysis</th><th>Quantity</th><th>Reported</th></tr></thead>
+            <tbody>
+              <tr><td><strong>A — Infection</strong></td><td>P(infected) per patient</td><td>Brier, ECE against its finite-sample null, calibration slope and intercept, ICI, reliability diagram</td></tr>
+              <tr><td><strong>B — Speciation</strong></td><td>the class posterior among truly infected patients only</td><td>multiclass Brier stated by formula, per-class reliability, explicit statement of whether probabilities sum to one</td></tr>
+            </tbody>
+          </table>
+          <caption>Reported separately. Never pooled.</caption>
+        </div>
+        <div class="body">
+          <ul>
+            <li><strong>Four decimal places.</strong> A Brier reported as <code>0.000</code> is a formatting failure all three reviewers flagged, and it is indistinguishable from a genuine zero — which would be impossible here.</li>
+            <li>Every metric <strong>cross-fitted out of fold</strong>, with the fold count and the number of degenerate folds beside it.</li>
+            <li>Reliability diagrams carry <strong>bin counts, intervals and a score histogram</strong>. A connected line over sparse bins is not a reliability diagram.</li>
+            <li>Calibration acts on the screening statistic only — a monotone map on one number — so it can move the infection boundary and <strong>cannot reorder species</strong>. No speciation result may be attributed to it.</li>
+            <li>ECE is not an inferential test. Permitted: <em>“the observed ECE lies within the finite-sample variability expected under the stated null.”</em> Forbidden: any wording implying calibration was established.</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- ══ 13 ══ -->
+      <section id="s13">
+        <h2 class="sec"><span class="num">13</span>Field-sampling stress test</h2>
+        <p class="deck">New. The highest-value addition in all three reviews — worth more than any additional rule.</p>
+        <div class="body">
+          <p>Every field from an infected patient contains a parasite. Accumulation rules are therefore evaluated under an assumption that screening violates. The concern is not that all performance is inflated. It is that <strong>the ranking of the rules may be an artefact of the enrichment</strong>, since R0 accumulates evidence without bound and R4 requires a count.</p>
+          <p><strong>Design.</strong> Hold the detector cache fixed. For each infected patient, construct smears at a declared positive-field rate π ∈ {1.0, 0.5, 0.25, 0.1} by combining that patient’s enriched fields with parasite-free fields drawn from uninfected patients of the <em>same centre</em>. Re-run every rule at every π.</p>
+          <p><strong>Reported:</strong> each rule’s screening sensitivity and specificity against π — and, the actual question, <strong>whether the ordering of the rules is stable across π.</strong></p>
+          <div class="note">
+            <span class="tag">Declared in advance</span>
+            <p style="margin:0">This is a sensitivity analysis under a stated resampling model, not an estimate of screening performance. The negative fields come from a different patient, so it tests the rules’ response to evidence dilution rather than the full screening problem. <strong>If the ordering inverts at low π, that outranks the confirmatory comparison</strong> — and saying so here, before the answer is known, is what makes it reportable either way.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ══ 17 ══ -->
+      <section id="s17">
+        <h2 class="sec"><span class="num">17</span>Forbidden and required language</h2>
+        <p class="deck">Left column struck through: retired. Right column: the form that replaces it.</p>
+        <div class="tw">
+          <table class="lang">
+            <thead><tr><th>Forbidden</th><th>Required</th></tr></thead>
+            <tbody>
+              <tr><td>failed reproduction</td><td>not reconstructible from the released artefacts</td></tr>
+              <tr><td>the rule matters more than the detector</td><td>the §9 marginal-effects form</td></tr>
+              <tr><td>R4 improves malaria diagnosis</td><td>the aggregation rule changed patient-level performance in this cohort</td></tr>
+              <tr><td>the rule controls false positives</td><td>reduced false-positive calls in the Montpellier-negative subset of this archive</td></tr>
+              <tr><td>condemns a smear</td><td>a single surviving parasite detection produced a positive patient-level call</td></tr>
+              <tr><td>the detector separates species better than the aggregate does</td><td>the residual speciation errors are consistent with aggregation-induced loss of class-specific evidence — with the confusion analysis attached</td></tr>
+              <tr><td>“pre-registered”, unqualified</td><td>registered before archive download and before analysis, after the source study’s headline results were public</td></tr>
+              <tr><td>“checkpoint factor” as an architecture comparison</td><td>released-checkpoint variation within one detector system</td></tr>
+              <tr><td>any Brier at three decimals</td><td>four decimals</td></tr>
+              <tr><td>trial registration</td><td>registered analysis plan — this is a secondary analysis, not a trial</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ══ 19 ══ -->
+      <section id="s19">
+        <h2 class="sec"><span class="num">19</span>Build integrity</h2>
+        <p class="deck">No PDF exists until this passes. It runs after the results object and before LaTeX; a failure is an error, not a warning.</p>
+        <div class="tw">
+          <table>
+            <thead><tr><th class="num">#</th><th>Check</th><th>What it prevents</th></tr></thead>
+            <tbody>
+              <tr><td class="num">1</td><td>No unresolved macro</td><td>in v2 they rendered as <code>[armsAnalysed]</code> and three reviewers read them as data</td></tr>
+              <tr><td class="num">2</td><td>No hand-typed directional claim</td><td>an abstract and a conclusion stating opposite endpoint verdicts</td></tr>
+              <tr><td class="num">3</td><td>One results object; figure stamp carries provenance and seed</td><td>a figure whose bars disagreed with the table above it</td></tr>
+              <tr><td class="num">4</td><td>Cross-artefact agreement on every shared number</td><td>AURC at 0.027 in text and 0.471 in a figure</td></tr>
+              <tr><td class="num">5</td><td>Arithmetic recomputed from the confusion counts</td><td>a sensitivity that does not follow from its own 2×2</td></tr>
+              <tr><td class="num">6</td><td>Precision floors — four decimals on Brier and ECE</td><td>a metric printed where 0.004 and 0.040 are indistinguishable</td></tr>
+              <tr><td class="num">7</td><td>Provenance: hashes, seeds, versions, build id</td><td>results that cannot be traced to a run</td></tr>
+              <tr><td class="num">8</td><td>Declarations non-empty</td><td>a submission blocked at the desk</td></tr>
+            </tbody>
+          </table>
+          <caption><strong>Check 8 never invents a declaration.</strong> It verifies that ethics, funding, CRediT, AI-use, repository, OSF and Zenodo identifiers are non-empty and fails if they are not. Those are author-supplied and always will be.</caption>
+        </div>
+      </section>
+
+      <!-- ══ 20 ══ -->
+      <section id="s20">
+        <h2 class="sec"><span class="num">20</span>Manuscript architecture</h2>
+        <p class="deck">Five main figures. Everything else to the supplement.</p>
+        <pre><code>Title       "Detector versus decision rule: a registered secondary
+             analysis of patient-level diagnostic aggregation in
+             automated malaria microscopy"
+
+Abstract    structured — generated verdicts only
+
+1 Intro     four paragraphs, ~25–30% shorter than v2
+            clinical problem · the detector → patient gap ·
+            the evidence gap · three explicit objectives
+
+2 Methods   design &amp; registration · dataset &amp; ESTIMANDS FIRST ·
+            checkpoints · post-processing · decision framework ·
+            six rules + comparability · gates · endpoints ·
+            statistical analysis · provenance
+
+3 Results   3.1 cohort and archive verification
+            3.2 reconstruction of the published pipeline
+            3.3 detector-output harmonisation
+            3.4 primary comparison — discordances first
+            3.5 rule vs checkpoint — model, then ranges
+            3.6 calibration — infection, then speciation
+            3.7 selective prediction as workload
+            3.8 error mechanisms
+            3.9 sensitivity analyses incl. field-sampling stress
+
+4 Discuss   principal findings · why aggregation matters · why
+            checkpoint comparisons are hard · reproducibility ·
+            SCOPE OF INFERENCE · limitations in three tiers
+
+5 Conclude  the minimum reporting standard, derived from what this
+            study found undocumented</code></pre>
+        <div class="body">
+          <p><strong>Five figures:</strong> study architecture; the reconstruction audit showing where the discrepancy sits; the factorial heatmap; the primary paired endpoint as a discordance plot; calibration and risk–coverage.</p>
+          <p><strong>Limitations in three tiers:</strong> structural and unfixable (specificity confounded with centre, enriched fields, imperfect reference standard); study-specific and addressed by design (excluded arm, three-patient classes, no multi-label); generalisation (one dataset, one detector system, referral population).</p>
+          <p><strong>Scope of inference appears early</strong>, not buried: technical validity ≠ diagnostic validity ≠ clinical utility ≠ deployment readiness.</p>
+        </div>
+      </section>
+
+      <!-- ══ 21 ══ -->
+      <section id="s21">
+        <h2 class="sec"><span class="num">21</span>What this protocol refuses to claim</h2>
+        <p class="deck">Written before the analysis, so it cannot be softened afterwards.</p>
+        <div class="refuse">
+          <h3>Out of scope by construction</h3>
+          <p class="sub">Not caveats. Statements the design cannot support, whatever the numbers turn out to be.</p>
+          <ul>
+            <li>that the source publication is wrong</li>
+            <li>that R4 is a recommended rule</li>
+            <li>that any specificity estimate is site-invariant</li>
+            <li>that any performance figure transports to screening</li>
+            <li>that calibration was established</li>
+            <li>that the rule factor dominates the detector as a general fact</li>
+            <li>that anything here bears on clinical utility or deployment readiness</li>
+          </ul>
+          <blockquote style="margin:0;border-left-color:var(--giemsa)">Patient-level decision rules are consequential, this dataset is insufficient to support a deployment recommendation, and a registered design can expose that limitation rather than conceal it.</blockquote>
+        </div>
+      </section>
+
+      <!-- ══ impl ══ -->
+      <section id="s22">
+        <h2 class="sec"><span class="num">22</span>Acquisition — how the archive becomes evidence</h2>
+        <p class="deck">Where the detections come from. Two of these choices change what every downstream number means, which is why they are protocol rather than appendix.</p>
+        <div class="body">
+          <p><strong>22.1 The cohort is the manifest&rsquo;s, not the filesystem&rsquo;s.</strong> One smear is one patient. Centre and reference diagnosis come from the manifest, mapped through tables written out rather than derived. A species or centre value the mapping does not contain is refused; a smear carrying two of either is refused; an image the manifest lists but the archive does not hold makes ingest exit non-zero. Each alternative is a silent change of denominator that nothing downstream could detect.</p>
+          <p><strong>22.2 The transformation is measured, not inferred.</strong> The archive ships <code>test</code> and <code>test-zoom</code> as two label trees over the same smears, so the source study&rsquo;s zoom correction is a count. <code>mag ingest</code> counts it and writes it beside the patient table; the analysis quotes it from there, so a reviewer re-running from a published cache never needs the 6&nbsp;GB archive. Where it was never counted, every macro says <em>NOT MEASURED</em> rather than falling back to a plausible fraction.</p>
+          <p><strong>22.3 The cache is pre-suppression, at a declared floor.</strong> Detection runs at 0.001 with suppression effectively disabled, and the manifest records <code>nms="none"</code>. Every rule&rsquo;s threshold is applied downstream, so a cache written at the published 0.25 operating point could not evaluate a rule below it and the three post-processing conditions of §6 would collapse into one.</p>
+          <p><strong>22.4 The class map comes from the checkpoint, or is declared.</strong> Names embedded in the checkpoint, matched through a synonym table that tolerates case, spacing and the usual abbreviations and nothing else. Any unmatched name is a refusal. Falling back to <code>classes.txt</code> order must be requested explicitly and declared in the manuscript: a wrong order relabels every detection with no other symptom.</p>
+          <div class="alert">
+            <span class="tag">§22.5 — upstream of the yield gate</span>
+            <h3>A silent detector is a bug, not a result.</h3>
+            <p>A run producing fewer boxes than fields, or boxes in under half the fields, marks its own cache suspect, and every analysis stage then refuses that arm. The yield gate protects the analysis; this protects the interpretation.</p>
+            <p style="margin-bottom:0">A checkpoint that returns two boxes from four and a half thousand fields has not been loaded or driven correctly. Reporting it as a weak detector would be a claim about the checkpoint that the evidence does not support.</p>
+          </div>
+          <p><strong>22.6 Reproducibility of the acquisition.</strong> Detection is resumable at smear granularity, and a shard is reused only when its fingerprint matches exactly: the image list, the confidence floor, the image size, the class map, and the checkpoint&rsquo;s SHA-256. The cache carries, and every downstream stage verifies, that SHA in two places, a content hash pinned to an exact serialisation, and the per-smear shards themselves — which must cover at least half the cohort before any result may be written. A table assembled by any other means has none of those and cannot acquire them.</p>
+        </div>
+      </section>
+
+      <section id="impl">
+        <h2 class="sec"><span class="num">→</span>Implementation</h2>
+        <p class="deck">Built. Every section of this protocol is implemented and held in place by tests.</p>
+        <div class="body">
+          <div class="alert">
+            <span class="tag">Status</span>
+            <h3>Every section implemented; 292 tests, three Python versions, two platforms.</h3>
+            <p>The substrate was kept rather than rewritten. Its regression tests pin defects found by four adversarial audits, each confirmed by running it: suppression keyed on <code>image_id</code> alone removed <strong>28% of detections under <code>matched</code> and 38% under <code>source</code></strong>; the non-inferiority bound did not hold its level; the co-primary verdict printed backwards whenever specificity was the failing component. A rewrite would have discarded the tests that catch them.</p>
+            <p style="margin-bottom:0">The rebuild then found five more in itself, each now pinned by a test named after it: a Kendall τ that added tied pairs where τ-b subtracts them, returning 0.67 for two identical rankings and turning a stable ordering into an unstable one; a cross-artefact check silently disconnected by a rename, reporting success while comparing nothing; a manifest that hashed memory rather than disk; a package version drifted to 1.0.0 while the metadata said 3.0.0; and complete separation making two implementations of the attribution model disagree by 4&times;10<sup>8</sup>.</p>
+          </div>
+        </div>
+        <div class="tw">
+          <table>
+            <thead><tr><th>Layer</th><th>Modules</th><th>Action</th><th>Why</th></tr></thead>
+            <tbody>
+              <tr><td><strong>substrate</strong></td><td class="s">schema · cache · provenance · errors · evidence · rules · stats</td><td><span class="chip done">kept</span></td><td>every audited defect lives here; the tests were the asset</td></tr>
+              <tr><td><strong>analysis</strong></td><td class="s">study · report · diagnostics · calibrate</td><td><span class="chip done">rebuilt</span></td><td>the protocol changed underneath them</td></tr>
+              <tr><td><strong>new</strong></td><td class="s">estimand · attribute · stress · predictive · audit</td><td><span class="chip done">written</span></td><td>§4, §9, §13, §14, §19</td></tr>
+              <tr><td><strong>acquisition</strong></td><td class="s">ingest · detect · discover</td><td><span class="chip done">brought in</span></td><td>§22 — a repository that cannot reach the archive is not reproducible</td></tr>
+              <tr><td><strong>unchanged</strong></td><td class="s">power · simulate · search · selective · figures · cli</td><td><span class="chip done">rewired</span></td><td>already satisfied v3</td></tr>
+            </tbody>
+          </table>
+          <caption>28 modules, 11,056 lines, 292 tests across 11 files. The seam between the two halves is tested directly: one test drives the detector with a stub, then runs the full analysis over the cache it produced — every other test on either side uses a cache built by its own fixtures, so a column, dtype or coordinate convention that disagreed across the join would pass all of them and fail only that one.</caption>
+        </div>
+
+        <div class="body">
+          <h3 style="font-family:Spectral,Georgia,serif;font-size:19px;font-weight:600;margin:28px 0 10px;">What remains</h3>
+          <p><strong>The run.</strong> <code>python run_local.py --root &lt;archive&gt;</code> on the machine with the GPU: ingest takes seconds, detection takes hours and is resumable at smear granularity, analysis takes four minutes. Expect the reconstruction gate to refuse — that refusal is the paper&rsquo;s central finding, and it belongs in the text before it belongs in a flag.</p>
+          <p><strong>Then the manuscript</strong>, in the order §20 sets out, with every number read from a macro and never typed. <code>mag audit</code> refuses the build if a macro is missing, a verdict is typed where a generated sentence exists, or a figure came from a different run — and there is no bypass flag.</p>
+          <p><strong>Ten declarations are yours, and nothing here will guess them:</strong> the author list and CRediT statement, both ethics approvals, consent for publication, funding, the AI-use declaration, the repository URL, the registration identifier, the code archive DOI, and the data availability statement. The audit checks that each is present and non-empty; it does not supply them, because a pipeline that filled them in would be inventing an ethics approval.</p>
+
+          <div class="alert">
+            <span class="tag">On revisiting the manuscript</span>
+            <h3>It cannot be rewritten yet.</h3>
+            <p>Three reviewers read a build whose numbers were placeholders and produced pages of analysis about results that do not exist — including a recommendation built on the reconstruction discrepancy running in the <em>opposite</em> direction to the real one. Writing prose now, against the same absent numbers, reproduces that situation with better wording.</p>
+            <p style="margin-bottom:0">What <em>can</em> be written now is everything that does not depend on a value: the section architecture, the contribution hierarchy, the estimands and their scopes (properties of the dataset, not of any result), the language rules, the claim–evidence–scope skeleton with verdict cells empty, and <strong>the Methods in full</strong>. That is a substantial share of the paper, and it is the share that is safe to write.</p>
+          </div>
+        </div>
+      </section>
+
+      <footer>
+        <span class="k">Protocol v3</span>
+        <span>Supersedes v2 · specification for both the analysis package and the manuscript</span>
+        <span class="k">No number enters prose until the re-run produces it</span>
+      </footer>
+    </main>
+  </div>
+</div>

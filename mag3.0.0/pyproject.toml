@@ -1,0 +1,81 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mag"
+version = "3.0.0"
+description = "Detector versus decision rule: patient-level aggregation in automated malaria microscopy"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+keywords = ["malaria", "microscopy", "reproducibility", "diagnostic-ai",
+            "aggregation", "patient-level"]
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+]
+
+# numpy, pandas and pyarrow read and analyse the cache; matplotlib draws the
+# figures, which `mag all` writes as a matter of course; statsmodels fits the
+# factorial attribution model.
+#
+# statsmodels is a deliberate exception to this package's otherwise
+# no-dependency inference. The argument for writing a Brier score out in numpy
+# is strong; the argument for writing your own GEE is weak, because a reviewer
+# challenging the paper's second contribution should be able to check it
+# against an implementation they recognise. `attribute.sandwich_check` fits the
+# same model independently and the run reports whether the two agree.
+#
+# There is deliberately no scipy and no scikit-learn: every calibrator, every
+# interval and every exact test here is written out, so the arithmetic can be
+# read rather than delegated.
+dependencies = [
+    "numpy>=1.21",
+    "pandas>=1.5",
+    "pyarrow>=10",
+    "matplotlib>=3.5",
+    "statsmodels>=0.13",
+]
+
+[project.optional-dependencies]
+# The analysis needs none of these. `mag detect` needs all of them, and it is
+# the only stage that does -- which is why they are an extra rather than a
+# dependency: a reviewer re-running the analysis from the published cache
+# should not have to install torch.
+#
+# openpyxl reads the archive's image_list.xlsx. Without it `mag ingest` still
+# works from a CSV export, and says so.
+gpu = ["torch", "ultralytics>=8.0", "openpyxl>=3.0", "pillow"]
+dev = ["pytest>=7", "pytest-cov", "pyflakes"]
+
+[project.scripts]
+mag = "mag.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+# Third-party deprecation chatter, silenced by WHERE IT COMES FROM rather than
+# by category. matplotlib drives an older pyparsing API and passes a deprecated
+# `mode=` to Pillow in its PDF backend; on one Windows run that was 270 lines of
+# summary for a suite with nothing wrong with it, which is how a real warning
+# gets missed. PyparsingDeprecationWarning subclasses UserWarning, not
+# DeprecationWarning, so the obvious filter does not catch it.
+#
+# The last entry is the point of the block: later filters take precedence, so a
+# warning raised from inside `mag` is an ERROR and fails the test that provoked
+# it.
+filterwarnings = [
+    "ignore::DeprecationWarning:matplotlib\\..*",
+    "ignore::DeprecationWarning:PIL\\..*",
+    "ignore::UserWarning:matplotlib\\..*",
+    "ignore::UserWarning:pyparsing\\..*",
+    "ignore::FutureWarning:statsmodels\\..*",
+    "ignore::DeprecationWarning:statsmodels\\..*",
+    "error:::mag\\..*",
+]

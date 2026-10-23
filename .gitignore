@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+
+# Project Outputs (Add these to stop the huge files!)
+malaria_experiment_suite/results/
+malaria_experiment_suite/results_cap3000/
+malaria_experiment_suite/verify/
+malaria_experiment_suite/eda/
+malaria_experiment_suite/data/
+mag3.0.0/data/

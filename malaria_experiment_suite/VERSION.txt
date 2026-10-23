@@ -1,0 +1,190 @@
+malaria experiment suite v4.1
+built 2026-08-31
+targets mag 3.0.0 build 8d3140ff57, Python 3.9+, Windows
+
+  python run_all.py --root ..\malaria_france_data_set \
+      --manuscript main.tex --pdf
+
+v4.1 is the revision that answers the peer review dossier
+(RESPONSE_TO_REVIEWERS.md). The analysis was not re-run and no observed
+number changed. What changed is what several numbers are called, three
+quantities that were computed and never reported, one reading that was
+wrong, and a set of code defects the review found by reading the source
+rather than the paper.
+
+THE ONE THING THAT MATTERED
+
+The field-count curve was read backwards. The paper said the comparator's
+flat curve showed that "the accumulation the rule performs across fields
+adds almost nothing". It shows no such thing. R0's threshold is theta =
+1e-9, and under the matched condition there is no confidence floor, so the
+rule calls ALL 170 patients infected: it is a constant function on this
+cache. A constant function returns the same label whatever it is shown, so
+its curve is flat by construction and carries no information about
+accumulation at all.
+
+This is the same class of error the paper is about -- reading a degenerate
+comparator as a substantive comparison -- committed by the paper. It is
+corrected in the manuscript, the talk and the poster; the count of positive
+calls is now generated from predictions.csv rather than asserted; and the
+retracted sentence is in the wording guard's FORBIDDEN list so it cannot
+come back.
+
+WHAT ELSE CHANGED IN THE MANUSCRIPT
+
+ 1. R0'S THRESHOLD IS STATED. Every rule's parameters were tabulated except
+    the comparator's. theta = 1e-9 is now in the rules table, read from
+    mag's own registry, with the sentence that explains what it means: a
+    threshold set just above zero, so one surviving parasite box condemns
+    the smear. Without that number a reader cannot judge the comparator's
+    specificity, and it appeared nowhere.
+
+ 2. THE GEOMETRY STEP IS DISCLOSED. sanitise_geometry deletes zero- and
+    negative-area boxes from the cache before any condition reads it. That
+    is correct processing -- a zero-area box has an empty IoU with
+    everything and would pass the matched condition unsuppressed -- but it
+    mutates the cache after detection and the counts went to a JSON file the
+    paper never read. On this run 14,704,241 boxes were checked and 0 were
+    removed. The macro reports both directions, including boxes removed
+    above the source study's 0.25 operating point, so a run where the step
+    does fire is auditable on the same terms. "Used unchanged" in the
+    Abstract now reads "whose weights were used unchanged".
+
+ 3. THE GEE EQUATION IS CORRECTED. The linear predictor carried u_i while
+    the fit was a marginal model. The term is removed, the Methods state
+    that dependence enters through the working correlation and the sandwich
+    rather than a subject effect, and that the equation was wrong and the
+    fit was not -- so nothing downstream changes.
+
+ 4. SEPARATION IS REPORTED. attribution.separation records that no rule
+    level, checkpoint level or cell was separated. It was computed and never
+    shown. Reported now, with the reason it matters: this factorial does
+    contain 0% and 100% cells on single metrics.
+
+ 5. THE FACTORIAL TABLE HAS INTERVALS. spec_lo, spec_hi, acc_lo and acc_hi
+    were in factorial.csv and in no table. A companion table gives
+    patient-level accuracy with its Wilson interval for every reported cell,
+    with a sentence on why the paired comparisons and not the marginal
+    columns are what the paper tests.
+
+ 6. THE COHORT ANOMALY IS SETTLED. Toulouse and Saint-Louis have identical
+    species distributions (22 patients each, same count in all six classes).
+    Verified two ways: the per-centre totals sum to the archive's own 170
+    smears, and the patient-level table holds 170 distinct identifiers
+    across six centres. They are disjoint. The caption says so.
+
+ 7. locoNCentres = 5 AGAINST SIX CENTRES IS EXPLAINED. mag marks a centre
+    uninterpretable below ten infected patients; Nantes contributes one. The
+    explanation is generated from loco.by_centre rather than typed.
+
+ 8. THE SWEEP GRID IS DESCRIBED. 276 does not factor as 9 rules x 3
+    conditions, because each rule carries its own threshold grid (7, 8 or 11
+    values). Generated from sweep.csv.
+
+ 9. THE RECONSTRUCTION TOLERANCE IS JUSTIFIED. Five patients, a registered
+    absolute count, with what it is meant to absorb and an explicit
+    statement that it is not a statistical criterion.
+
+10. FOUR RULE COUNTS ARE RECONCILED. Five reported, ten in the factorial and
+    every model fitted on it, nine in the sweep, fourteen with the
+    cross-fitted family. Generated, in the Methods where the rules are
+    defined.
+
+11. SPECIATION ACCURACY REACHES THE MAIN RESULTS. 51.7% was reported only
+    inside a sensitivity analysis, in a paper whose accuracy metric is a
+    species call. One paragraph after the factorial table.
+
+12. THE ERROR CENSUS IS LABELLED. It describes R0 on RT-DETR under matched
+    post-processing, not the factorial.
+
+13. "MATERIALLY" IS DEFINED. Objective 1 now says "by more than a
+    permutation null of this design generates", and states that no threshold
+    of clinical importance is set because this design cannot support one.
+
+14. APPENDIX B REPORTS BOTH DIRECTIONS. The register listed what the
+    manuscript calls; it now also lists every macro the pipeline produces
+    that the manuscript does NOT cite, by stage. 478 producible, 204 cited,
+    274 listed. A paper about under-reported pipelines cannot choose in
+    private which of its own outputs to show.
+
+CODE CHANGES
+
+  run_all.py            --condition {raw,matched,source} passes through to
+                        run_experiment.py, warns that anything but matched
+                        is a secondary analysis, and requires its own
+                        --results directory. This is what makes the
+                        source-condition paired comparison one command.
+                        --geometry is passed to make_archive_macros.py.
+
+  make_archive_macros.py  from_geometry(): the geometry accounting, in both
+                        directions. _centre_twins(): centres with identical
+                        species vectors, with the arithmetic that says
+                        whether it is a duplication. 111 macros, was 104.
+
+  make_result_tables.py decision_layer_macros(): the comparator's threshold
+                        from mag's registry, its positive-call count from
+                        predictions.csv, the corrected field-curve reading,
+                        the separation diagnostics, the centre-disjointness
+                        cross-check, the LOCO explanation, the sweep grid,
+                        the reconstruction tolerance, the error arm and the
+                        rule-family reconciliation. factorial_ci_table().
+
+  missing_results.py    the reverse direction: computed-and-not-cited, by
+                        stage, in both MISSING_RESULTS.md and the appendix.
+                        aurcConf's description corrected.
+
+  run_experiment.py     cropModelGap no longer emits a bare per-cent sign,
+                        which would have broken the build the first time the
+                        manuscript cited it. Three retracted field-curve
+                        readings added to the wording guard.
+
+  reproduce.py          the offline copy of the wording guard was a stale
+                        fork: it lacked NOT_PROSE, so it read the generated
+                        figure path results/figures/apportionment as
+                        forbidden v2 prose and failed a manuscript the
+                        driver's copy passed. Back-ported, and a test now
+                        pins the two copies to identical behaviour.
+
+  test_experiment.py    220 assertions, was 214. New: the two guard copies
+                        agree; a generated figure path is not read as prose;
+                        no generated macro body carries an unescaped
+                        per-cent sign (not only the called ones);
+                        from_geometry's names are known to the producible
+                        set in both branches.
+
+VERIFIED
+
+  220/220 assertions pass.
+  main.pdf    40 pages, 204/204 macros resolved, 0 LaTeX errors, 0 undefined
+              citations or references.
+  slides.pdf  21 frames, 98/98 macros resolved, 0 errors, 0 overfull boxes.
+  poster.pdf  A0 portrait, 70/70 macros resolved, 0 errors, 0 overfull.
+
+  The wording guard reports one informational "demoted" flag
+  (apportionmentSentence). It is correct: that macro is a descriptive range
+  and the paper uses it as one.
+
+STILL YOURS TO WRITE
+
+  The ten declarations and the [FILL: ...] slots: 14 in the paper, 5 each in
+  the talk and the poster.
+
+STILL OPEN
+
+  The source-condition paired comparison. The dossier's most useful single
+  request, and it needs a run:
+
+    python run_all.py --root ..\malaria_france_data_set \
+        --phases experiment --condition source --results results_source
+
+  It is a secondary, post hoc analysis and the manuscript must label it as
+  one. Until it exists the paper says the comparison was not made.
+
+  mag's release. The paper cannot meet the reporting standard it proposes in
+  its own Conclusion until the engine ships with it.
+
+  Supplementary Results S1-S6, referenced from the main text.
+
+  The abstract runs to 385 words with its macros expanded, against a
+  350-word cap at BMC and 300 at PLOS. Reaching either means dropping a
+  finding. Name the target journal and it can be cut.

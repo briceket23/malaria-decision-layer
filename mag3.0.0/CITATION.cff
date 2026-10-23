@@ -1,0 +1,27 @@
+cff-version: 1.2.0
+title: >-
+  mag — detector versus decision rule: patient-level aggregation in
+  automated malaria microscopy
+message: >-
+  If you use this software, please cite both the software and the
+  paper it was written for.
+type: software
+authors:
+  - name: "NOT REPORTED — supply the author list before release"
+repository-code: "NOT REPORTED — supply the repository URL before release"
+license: MIT
+version: 3.0.0
+abstract: >-
+  A re-analysis package that separates the detector checkpoint from the
+  patient-level aggregation rule in automated malaria microscopy. It runs the
+  released detectors over the released archive, applies fourteen aggregation
+  rules to the same detections, and refuses to write any result that cannot be
+  traced to that run: there is no synthetic generation, no default cache path,
+  and no fallback that manufactures an input a stage cannot find.
+keywords:
+  - malaria
+  - microscopy
+  - reproducibility
+  - diagnostic-ai
+  - aggregation
+  - patient-level

@@ -1,0 +1,28 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+build/
+dist/
+.venv/
+venv/
+malaria_venv/
+
+# Analysis outputs. Results are produced by running the pipeline, never
+# committed: a results file in version control is a results file nobody can
+# tie to a run.
+results/
+figures/
+data/
+*.parquet
+*.pt
+
+# LaTeX
+*.aux
+*.log
+*.out
+*.bbl
+*.blg
+*.synctex.gz
